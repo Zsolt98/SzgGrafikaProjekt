@@ -1,0 +1,13 @@
+# Blender MTL File: 'to_obj.blend'
+# Material Count: 1
+
+newmtl plastic
+Ns 338.759492
+Ka 0.086486 0.086486 0.086486
+Kd 1.000000 1.000000 1.000000
+Ks 0.220463 0.220463 0.220463
+Ke 0.0 0.0 0.0
+Ni 1.450000
+d 1.000000
+illum 3
+map_Kd wallbrick\\dif.jpg

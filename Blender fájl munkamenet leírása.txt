@@ -1,0 +1,11 @@
+1.
+Egy alap kockából indultam ki, melyet átméreteztem a tervek alapján úgy, hogy a rácsokra illeszkedjen.
+
+2.
+Az így kapott téglatestet a "Boolean" modifier-rel a méretarányoknak megfelelően a Bevel modifier-rel ellátott hengerekkel kilyukasztottam, majd a csúcspontoknál kihúztam a tetején lévő bütyköket.
+
+3.
+A belsejében lévő "csöveket" hasonlóan készítettem el, annyi különbséggel hogy a modifier használata előtt behúztam a körlapon az éleket és a henger belsejét az "Extrude" eszközzel kilyukasztottam, így kapva a 3 db "csövet" az alján.
+
+4.
+Végül a maradék éleket is levágtam.

@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset=utf-8>
+    <title>Kopcsek Zsolt - Y2R7R0</title>
+    <style>
+        body { margin: 0; overflow: hidden;}
+        canvas { width: 100%; height: 100%;}
+        #szoveg{
+            display: block;
+        }
+        #format{
+            position: absolute;
+            width: auto;
+            text-align: left;
+            z-index: 100;
+            border-radius: 5px;
+            border: solid 1px rgba(0, 255, 253, 0.65);
+            margin: 10px;
+            padding: 10px;
+            background-color: rgba(65,65,65,0.8);
+        }
+		.adatok{
+            left: 0px;
+            color: rgba(183, 253, 255, 0.65);
+        }
+        .info{
+            right: 0px;
+            color: rgba(183, 253, 255, 0.65);
+        }
+    </style>
+</head>
+<script src="js-r107/three.js"></script>
+<script src="js-r107/TrackballControls.js"></script>
+<script src="js-r107/OBJLoader.js"></script>
+<script src="js-r107/MTLLoader.js"></script>
+<script src="js-r107/dat.gui.min.js"></script>
+<script src="js-r107/stats.min.js"></script>
+
+<script>
+
+	var meshLoaded;
+    var WIDTH, HEIGHT, aspectRatio;
+    var renderer;
+    var scene, camera;
+    var controls;
+    var geometry, material, mesh;
+
+	var floorGeometry, floorMesh, floorMaterial;
+	var mat;
+
+	var oszlop;
+    var sLight;
+
+    var stats;
+    var ctrl;
+
+    var pLight = new THREE.PointLight( 0xffffff, 0.2 );
+    var dLight = new THREE.DirectionalLight( 0xa08080, 1);
+
+    var falMesh, falMesh2, falMesh3, falMesh4;
+    var villog;
+    var tetoElemek = [];
+
+    function loader() {
+        var OBJFile = 'assets/textured_lego_brick.obj';
+        var MTLFile = 'assets/textured_lego_brick.mtl';
+
+        new THREE.MTLLoader()
+            .load(MTLFile, function (materials) {
+                materials.preload();
+                new THREE.OBJLoader()
+                    .setMaterials(materials)
+                    .load(OBJFile, function (object) {
+                        meshLoaded = object;
+                        console.log(object);
+
+                        object.traverse(function (child) {
+                            if (child instanceof THREE.Mesh) {
+                                child.receiveShadow = true;
+                                child.castShadow = true;
+                                child.scale.set(1, 1, 1);
+                            }
+                        });
+
+                        init();
+                    });
+            });
+    }
+
+    function addStatsObject() {
+        stats = new Stats();
+        stats.setMode(0);
+
+        stats.domElement.style.position = 'absolute';
+        stats.domElement.style.left = 10 + 'px';
+        stats.domElement.style.top = 150 + 'px';
+        document.body.appendChild( stats.domElement );
+    }
+
+
+
+    var skyAndLightController = function () {
+	    this.dayLightIntensity = 1;
+    };
+
+    function addControlGui( controlObject ) {
+        var gui = new dat.GUI( { autoPlace: false });
+        gui.add(controlObject, "dayLightIntensity", 1, 3).step(0.1).name("Nap fényereje");
+
+        gui.domElement.style.position = 'absolute';
+        gui.domElement.style.top = 160 + 'px';
+        gui.domElement.style.right = -10 + 'px';
+        document.body.appendChild( gui.domElement );
+    }
+
+
+    function init() {
+
+        // Böngésző ablakméret lekérése és méretarány számítása
+        HEIGHT = window.innerHeight;
+        WIDTH = window.innerWidth;
+        aspectRatio = WIDTH / HEIGHT;
+
+        // Renderer létrehozása és DOM-hoz adása
+        renderer = new THREE.WebGLRenderer( { antialias: true } );
+        renderer.setSize( WIDTH, HEIGHT );
+        renderer.setClearColor( 0x000010 );
+        document.body.appendChild( renderer.domElement );
+
+        scene = new THREE.Scene();
+
+        // Kamera létrehozása és vetítési paramétereinek beállítása
+
+        camera = new THREE.PerspectiveCamera( 45, aspectRatio, 0.1, 10000 );
+        camera.position.z = 90;
+		camera.position.y = 30;
+		camera.position.x = 20;
+        camera.lookAt( scene.position );
+
+        controls = new THREE.TrackballControls( camera, renderer.domElement );
+        controls.rotateSpeed = 5.0;
+        controls.panSpeed = 1.0;
+
+        //GUI
+
+        ctrl = new skyAndLightController();
+        addControlGui( ctrl );
+
+        // Égbolt
+
+        var egbolt_texture_loader = new THREE.TextureLoader();
+        var egbolt_textureMaterial = new THREE.MeshBasicMaterial({side: THREE.BackSide, wireframe: false});
+        var egbolt_texture = egbolt_texture_loader.load( 'assets/sky.jpg' );
+        egbolt_textureMaterial.map = egbolt_texture;
+        var egbolt = new THREE.SphereGeometry(1000, 24, 24);
+        var egboltMesh = new THREE.Mesh(egbolt,egbolt_textureMaterial);
+        scene.add(egboltMesh);
+
+        // Oldalsó falak
+
+        var fal_texture_loader = new THREE.TextureLoader();
+        var fal_textureMaterial = new THREE.MeshPhongMaterial({side: THREE.DoubleSide, wireframe: false, shininess: 20, specular: "white"});
+        var fal_texture = fal_texture_loader.load( 'assets/wallbrick/dif.jpg' );
+        var fal_texture_normal = fal_texture_loader.load( 'assets/wallbrick/nor.jpg' );
+        var fal_texture_bump = fal_texture_loader.load( 'assets/wallbrick/bump.jpg' );
+        fal_textureMaterial.map = fal_texture;
+        fal_textureMaterial.bumpMap = fal_texture_bump;
+        fal_textureMaterial.normalMap = fal_texture_normal;
+        var fal = new THREE.PlaneGeometry(16,12,1,1);
+        falMesh = new THREE.Mesh(fal,fal_textureMaterial);
+        falMesh.rotation.y = -Math.PI/2;
+        falMesh.position.set(20,7.5,8);
+        falMesh.receiveShadow = true;
+        falMesh.castShadow = true;
+        scene.add(falMesh);
+
+
+        falMesh2 = new THREE.Mesh(fal,fal_textureMaterial);
+        falMesh2.rotation.y = -Math.PI/2;
+        falMesh2.position.set(0,7.5,8);
+        falMesh2.receiveShadow = true;
+        falMesh2.castShadow = true;
+        scene.add(falMesh2);
+
+        var alpha_loader = new THREE.TextureLoader();
+        var fal_alphaMaterial = new THREE.MeshPhongMaterial({side: THREE.DoubleSide, wireframe: false, shininess: 20, specular: "white", transparent: true});
+        var fal_texture_ = alpha_loader.load( 'assets/wallbrick/fal_dif.png' );
+        var fal_texture_nrm_ = alpha_loader.load( 'assets/wallbrick/fal_nrm.png' );
+        var fal_texture_bump_ = alpha_loader.load( 'assets/wallbrick/fal_bump.png' );
+        fal_alphaMaterial.map = fal_texture_;
+        fal_alphaMaterial.normalMap = fal_texture_nrm_;
+        fal_alphaMaterial.bumpMap = fal_texture_bump_;
+
+        // Ajtó és ablakos falak
+
+        var fal3 = new THREE.PlaneGeometry(20,12,1,1);
+        falMesh3 = new THREE.Mesh(fal3,fal_alphaMaterial);
+        falMesh3.position.set(10,7.5,16);
+        falMesh3.receiveShadow = true;
+        falMesh3.castShadow = true;
+        scene.add(falMesh3);
+
+
+        falMesh4 = new THREE.Mesh(fal3,fal_textureMaterial);
+        falMesh4.position.set(10,7.5,0);
+        falMesh4.receiveShadow = true;
+        falMesh4.castShadow = true;
+        scene.add(falMesh4);
+
+
+        // Cylinder falak
+
+        var teto_3szog = new THREE.CylinderGeometry(10,10,0.5,3,1,false);
+        var teto_3szogMesh = new THREE.Mesh(teto_3szog, fal_textureMaterial);
+        teto_3szogMesh.scale.x = 1.2;
+        teto_3szogMesh.scale.z = 0.45;
+        teto_3szogMesh.position.set(10,15.5,16);
+        teto_3szogMesh.rotation.x = -Math.PI/2;
+        scene.add(teto_3szogMesh);
+
+        var teto_3szogMesh2 = new THREE.Mesh(teto_3szog, fal_textureMaterial);
+        teto_3szogMesh2.scale.x = 1.2;
+        teto_3szogMesh2.scale.z = 0.45;
+        teto_3szogMesh2.position.set(10,15.5,0);
+        teto_3szogMesh2.rotation.x = -Math.PI/2;
+        scene.add(teto_3szogMesh2);
+
+
+		// Floor
+
+        var textureLoader = new THREE.TextureLoader();
+        var floor_texture = textureLoader.load( 'assets/floortexture/floortexture.jpg' );
+        var floor_texture_normal = textureLoader.load( 'assets/floortexture/floortexture_NRM.jpg' );
+        var floor_texture_ao = textureLoader.load( 'assets/floortexture/floortexture_OCC.jpg' );
+        var floor_texture_DISP = textureLoader.load( 'assets/floortexture/floortexture_DISP.jpg' );
+        var floor_texture_spec = textureLoader.load( 'assets/floortexture/floortexture_SPEC.jpg' );
+
+        floorMaterial = new THREE.MeshPhongMaterial();
+        floorMaterial.map = floor_texture;
+        floorMaterial.normalMap = floor_texture_normal;
+        floorMaterial.displacementMap = floor_texture_DISP;
+        floorMaterial.displacementScale = 1;
+        floorMaterial.aoMap = floor_texture_ao;
+        floorMaterial.aoMapIntensity = 1;
+        floorMaterial.specularMap = floor_texture_spec;
+		floorGeometry = new THREE.PlaneGeometry( 60, 90, 1,1);
+        floorMesh = new THREE.Mesh( floorGeometry, floorMaterial );
+        floorMesh.position.z = 30;
+        floorMesh.rotation.x = -Math.PI/2;
+        floorMesh.receiveShadow = true;
+        scene.add( floorMesh );
+
+        // Tető és alapzat
+
+        meshLoaded.position.y += 1.26*10;
+
+		var i, j;
+		var teto_csucs;
+		var teto_elem;
+
+
+		//lego elem position y += 1.26;
+		for (i = 0; i < 12; i+=2){
+            teto_csucs = meshLoaded.position.y += 1.26;
+		    for(j = 0; j < 18; j+=2){
+                teto_elem = meshLoaded.clone();
+                tetoElemek.push(teto_elem);
+                teto_elem.position.x += i;
+                teto_elem.position.z += j;
+                scene.add(teto_elem);
+            }
+        }
+
+		var teto_right = meshLoaded.clone();
+		teto_right.position.y = teto_csucs;
+		teto_right.position.x = 4+j;
+
+        for (i = 10; i > 0; i-=2){
+            teto_right.position.y -= 1.26;
+            for(j = 0; j < 17; j+=2){
+                var lego_right = teto_right.clone();
+                tetoElemek.push(lego_right);
+                lego_right.position.x -= i;
+                lego_right.position.z += j;
+                scene.add(lego_right);
+            }
+        }
+
+        // Alapzat
+
+        var coord_reset_lego_padlo = meshLoaded.clone();
+        var szurkeLego = new THREE.MeshPhongMaterial({color: 0x303030, side: THREE.FrontSide, wireframe: false, specular: 0x505050, shininess: 40}) ;
+        coord_reset_lego_padlo.position.x = -5;
+        coord_reset_lego_padlo.position.z = -5;
+        coord_reset_lego_padlo.position.y = 1;
+
+        coord_reset_lego_padlo.material = szurkeLego;
+
+
+        for (i = 0; i < 30; i+=4){
+            for (j = 0; j < 30; j+=2){
+                var lego_padlo = coord_reset_lego_padlo.clone();
+                lego_padlo.position.x += i;
+                lego_padlo.position.z +=j;
+                scene.add(lego_padlo);
+            }
+        }
+
+        // Nap
+
+        dLight.position.set( 60, 40, 60 );
+        dLight.target = scene;
+        dLight.castShadow = true;
+        dLight.shadow.mapSize.width = 2048;
+        dLight.shadow.mapSize.height = 2048;
+        dLight.shadow.camera.near = 0.5;
+        dLight.shadow.camera.far = 5000;
+        scene.add( dLight );
+
+
+        var ambientLight = new THREE.AmbientLight( 0xffffff, 0.2 );
+        scene.add( ambientLight );
+
+        // Lámpa a házban
+
+        var bura = new THREE.MeshPhongMaterial( {
+            color: 0xfffccc,
+            shininess: 40,
+            specular: "white",
+            side: THREE.FrontSide,
+            wireframe: false
+        });
+
+        var lampa = new THREE.ConeGeometry(2,2,12,1,false);
+        var lampaMesh = new THREE.Mesh(lampa, bura);
+        lampaMesh.receiveShadow = true;
+        lampaMesh.castShadow = true;
+        lampaMesh.position.set( 10, 13.5, 8 );
+        scene.add(lampaMesh);
+        pLight.position.set( 10, 12, 8 );
+        pLight.castShadow = true;
+        scene.add( pLight );
+
+        // Oszlop és reflektorfény
+
+        var magassag = 20;
+        var cylinder = new THREE.CylinderGeometry(1,1,magassag,12,1,false);
+        var blackMaterial = new THREE.MeshPhongMaterial( {
+           color: 0x101010,
+           shininess: 80,
+           specular: 0x111111,
+           side: THREE.FrontSide,
+           wireframe: false
+        });
+
+        var oszlop_lampa = new THREE.CylinderGeometry(0.4,0.4,4,12,1,false);
+        var oszlop_lampaMesh = new THREE.Mesh(oszlop_lampa, blackMaterial);
+        oszlop_lampaMesh.position.y = 19.5;
+        oszlop_lampaMesh.position.z = 34;
+        oszlop_lampaMesh.rotation.x = -Math.PI/2;
+        scene.add(oszlop_lampaMesh);
+
+        // Lámpa a házban folytatás
+
+        var vezetek = new THREE.CylinderGeometry(0.1,0.1,5,12,1,true);
+        var vezetekMesh = new THREE.Mesh(vezetek, blackMaterial);
+        vezetekMesh.position.set(10,16,8);
+        scene.add(vezetekMesh);
+
+        // Oszlop és reflektorfény folytatás
+
+        oszlop = new THREE.Mesh( cylinder, blackMaterial );
+        oszlop.position.z = 32;
+        oszlop.position.y = magassag/2;
+        oszlop.receiveShadow = true;
+        oszlop.castShadow = true;
+        scene.add(oszlop);
+        var sLight_target = new THREE.Group();
+        sLight_target.position.z = 45;
+        scene.add(sLight_target);
+
+        sLight = new THREE.SpotLight( 0x3f5f7f,1 );
+        sLight.position.set( 0, 20, 35);
+        sLight.angle = Math.PI / 6;
+        sLight.target = sLight_target;
+        sLight.castShadow = true;
+        sLight.penumbra = 0.8;
+        sLight.distance = 80;
+        scene.add( sLight );
+
+
+        addStatsObject();
+        window.addEventListener( 'keydown', handleKeyDown );
+        window.addEventListener( 'resize', handleWindowResize, false );
+        render();
+    }
+
+    function handleWindowResize() {
+        // Az ablak átméretezése esetén a kamera vetítési paraméterek újraszámolása
+        HEIGHT = window.innerHeight;
+        WIDTH = window.innerWidth;
+        console.log( 'WIDTH=' + WIDTH + '; HEIGHT=' + HEIGHT );
+        renderer.setSize( WIDTH, HEIGHT );
+        aspectRatio = WIDTH / HEIGHT;
+        camera.aspect = aspectRatio;
+        camera.updateProjectionMatrix();
+    }
+
+    var sceneRotation;
+
+	function handleKeyDown(event) {
+            //console.log('keydown: ' + event.keyCode);
+            // Információk elrejtése
+			var hud = document.getElementById("szoveg");
+			if (event.keyCode === 73) {
+				if (hud.style.display === 'none') {
+					hud.style.display = 'block';
+				}
+				else {
+					hud.style.display = 'none';
+				}
+			}
+
+			// Ház lámpa vezérlés
+            if (event.keyCode === 76) {
+                if (pLight.intensity === 0) {
+                    pLight.intensity = 0.6;
+                }
+                else {
+                    pLight.intensity = 0;
+                }
+            }
+
+            // Színtér forgatása
+            if(event.keyCode === 82){
+                sceneRotation = !sceneRotation;
+            }
+
+            // Falak és tető elrejtése
+            if (event.keyCode === 70) {
+                for(var teto of tetoElemek){
+                    teto.visible = !teto.visible;
+                }
+                falMesh.visible = !falMesh.visible;
+                falMesh2.visible = !falMesh2.visible;
+            }
+	}
+
+
+    var render = function () {
+        renderer.shadowMap.enabled = true;
+        //renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+        // Sízntér forgatás logika
+        if(sceneRotation) {
+            scene.rotation.y += 0.003;
+        }
+        else {
+            scene.rotation.y += 0;
+        }
+        // Nap vezérlés
+        dLight.intensity = ctrl.dayLightIntensity;
+
+        // Utca lámpa villogás
+        if(sLight.intensity < 0){
+            villog = true;
+        }
+        if(sLight.intensity > 5){
+            villog = false;
+        }
+        if(villog === false){
+            sLight.intensity -= 0.1;
+        }
+        else {
+            sLight.intensity += 0.1;
+        }
+
+
+        stats.update();
+        controls.update();
+        renderer.render( scene, camera );
+		requestAnimationFrame( render );
+    };
+
+</script>
+<body onload="loader()">
+    <div id="szoveg">
+        <div id="format" class="adatok">
+            <p>Név: Kopcsek Zsolt<br>Neptun kód: Y2R7R0<br>Szak: TTIK - Programtervező informatikus<br>Aktuális tanév: 2019/2020/1</p>
+        </div>
+        <div id="format" class="info">
+            <ul>
+                <li>A színtér az egér segítségével körbeforgatható.</li>
+                <li>A szöveges információkat az <span style="color: #9797ff">„I”</span> billentyűvel lehet elrejteni és megjeleníteni.</li>
+                <li>A fényeket az <span style="color: #9797ff">„L”</span> billentyűvel lehet ki és bekapcsolni.</li>
+                <li>A színtér az <span style="color: #9797ff">„R”</span> billentyű lenyomásával körbeforog.</li>
+                <li>A falakat és a tetőt az <span style="color: #9797ff">„F”</span> billentyűvel lehet elrejteni.</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>
